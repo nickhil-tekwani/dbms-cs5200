@@ -1,0 +1,135 @@
+---
+title: "Tekwani.CRDB.CS5200"
+author: "Nickhil Tekwani"
+date: '2022-05-23'
+output: html_document
+---
+
+
+## R Markdown
+```{r}
+library("RSQLite")
+
+fpath = "/Users/nickhiltekwani/Documents/CurrentClasses/CS5200"
+dbfile = "finalcoursesdb.sqlite"
+dbcon <- dbConnect(RSQLite::SQLite(), paste0(fpath, dbfile))
+```
+```{sql connection=dbcon}
+PRAGMA foreign_keys = ON
+```
+
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS Course;
+```
+```{sql connection=dbcon}
+CREATE TABLE Course( 
+  number TEXT NOT NULL,
+  title TEXT NOT NULL,
+  lengthInDays NUMBER NOT NULL CHECK(lengthInDays >= 0),
+  PRIMARY KEY (number)
+);
+```
+
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS Subject;
+```
+```{sql connection=dbcon}
+CREATE TABLE Subject( 
+  subject TEXT NOT NULL,
+  PRIMARY KEY (subject)
+);
+```
+
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS Lesson;
+```
+```{sql connection=dbcon}
+CREATE TABLE Lesson(
+  tid INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  lengthInHrs NUMBER NOT NULL CHECK(lengthInHrs >= 0),
+  subject TEXT NOT NULL,
+  PRIMARY KEY (tid),
+  FOREIGN KEY (subject) REFERENCES Subject(subject)
+);
+```
+
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS Unit;
+```
+```{sql connection=dbcon}
+CREATE TABLE Unit(
+  number TEXT NOT NULL,
+  tid INTEGER NOT NULL,
+  FOREIGN KEY (number) REFERENCES Course(number),
+  FOREIGN KEY (tid) REFERENCES Lesson(tid),
+  PRIMARY KEY (number, tid)
+);
+```
+
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS Prereq;
+```
+```{sql connection=dbcon}
+CREATE TABLE Prereq( 
+  lesson_tid INTEGER NOT NULL,
+  prereq_tid INTEGER NOT NULL,
+  PRIMARY KEY (lesson_tid, prereq_tid),
+  FOREIGN KEY (lesson_tid) REFERENCES Lesson(tid),
+  FOREIGN KEY (prereq_tid) REFERENCES Lesson(tid),
+  CONSTRAINT not_prereq_of_self CHECK (lesson_tid <> prereq_tid)
+);
+```
+
+```{sql connection=dbcon}
+INSERT INTO Course VALUES 
+  ("123", "123title", 6),
+  ("456", "456title", 15);
+```
+```{sql connection=dbcon}
+SELECT * FROM Course;
+```
+
+```{sql connection=dbcon}
+INSERT INTO Subject VALUES 
+  ("ML"),
+  ("SQL"),
+  ("R"),
+  ("Java");
+```
+```{sql connection=dbcon}
+SELECT * FROM Subject;
+```
+
+```{sql connection=dbcon}
+INSERT INTO Lesson VALUES 
+  (123, "123 lesson title", 6, "SQL"),
+  (456, "456 lesson title", 15, "Java");
+```
+```{sql connection=dbcon}
+SELECT * FROM Lesson;
+```
+
+```{sql connection=dbcon}
+INSERT INTO Unit VALUES 
+  ("123", 123),
+  ("456", 456);
+```
+```{sql connection=dbcon}
+SELECT * FROM Unit;
+```
+
+```{sql connection=dbcon}
+INSERT INTO Prereq VALUES 
+  (456, 123);
+```
+```{sql connection=dbcon}
+SELECT * FROM Prereq;
+```
+
+```{r}
+# dbDisconnect(dbcon)
+```
+
+
+

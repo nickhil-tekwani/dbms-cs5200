@@ -1,0 +1,282 @@
+---
+title: "Practicum 1"
+output: html_notebook
+author: 
+  - Nickhil Tekwani, tekwani.n@northeastern.edu
+  - Anurag Arasan, arasan.a@northeastern.edu
+---
+
+# Part 1: DB Connection to AWS MYSQL Instance
+```{r}
+library(RMySQL)
+library(sqldf)
+options(sqldf.driver = "SQLite")
+
+db_user <- "cs5200"
+db_password <- "databases2022"
+db_name <- "Practicum1_DB"
+db_host <- "cs5200-dbs.cejiubjir362.us-east-2.rds.amazonaws.com" # AWS Host
+db_port <- 3306
+dbcon <- dbConnect(MySQL(),
+  user = db_user, password = db_password,
+  dbname = db_name, host = db_host, port = db_port
+)
+```
+
+## Part 1.5: Set Up Schema for DB
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS incidents
+```
+
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS airports
+```
+
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS conditions
+```
+
+```{sql connection=dbcon}
+CREATE TABLE conditions(
+  cid INTEGER PRIMARY KEY AUTO_INCREMENT,
+  `condition` TEXT NOT NULL,
+  explanation TEXT
+  )
+```
+
+```{sql connection=dbcon}
+CREATE TABLE airports(
+  aid INTEGER PRIMARY KEY AUTO_INCREMENT, 
+  airportName TEXT NOT NULL, 
+  airportCode TEXT, 
+  state TEXT NOT NULL
+  )
+```
+
+```{sql connection=dbcon}
+CREATE TABLE incidents(
+rid INTEGER NOT NULL PRIMARY KEY,
+date DATE NOT NULL,
+origin INTEGER,
+airline TEXT NOT NULL,
+aircraft TEXT NOT NULL,
+flightPhase ENUM("Takeoff", "Landing", "Inflight", "Unknown") NOT NULL,
+altitude INTEGER NOT NULL,
+conditions INTEGER,
+warning ENUM("Y", "N") NOT NULL,
+FOREIGN KEY (conditions) REFERENCES conditions(cid),
+FOREIGN KEY (origin) REFERENCES airports(aid)
+)
+```
+
+# Part 2: Load in Bird Strikes CSV and pre-process data accordingly
+```{r}
+
+# load csv
+df <- read.csv("BirdStrikesData-V2.csv",
+  header = TRUE, stringsAsFactors = FALSE
+)
+
+# harmonize flight phases
+df <- sqldf(c("UPDATE df
+              SET flight_phase =
+              CASE
+                WHEN flight_phase = 'Climb' THEN 'Takeoff'
+                WHEN flight_phase = 'Landing Roll' THEN 'Landing'
+                WHEN flight_phase = 'Approach' THEN 'Landing'
+                WHEN flight_phase = 'Take-off run' THEN 'Takeoff'
+                WHEN flight_phase = 'Descent' THEN 'Landing'
+                Else 'Unknown'
+              END;", "SELECT * FROM df"))
+
+# remove all military flights
+df <- sqldf(c("DELETE FROM df WHERE airline = 'MILITARY'", "SELECT * FROM df"))
+
+conditions_df <- sqldf(c("CREATE TABLE temp(cid INTEGER PRIMARY KEY AUTOINCREMENT,
+  condition TEXT)", "INSERT INTO temp(condition)
+  SELECT DISTINCT
+   sky_conditions AS condition
+   FROM df", "SELECT * FROM temp"))
+
+airports_df <- sqldf(c(
+  "CREATE TABLE temp(aid INTEGER PRIMARY KEY AUTOINCREMENT,
+  airportName TEXT, airportCode TEXT, state TEXT)",
+  "INSERT INTO temp(airportName, state)
+  SELECT DISTINCT
+   airport,
+   origin
+   FROM df", "SELECT * FROM temp"
+))
+#
+df <- sqldf("SELECT rid,airport,flight_date,airline,aircraft,aid AS origin,flight_phase,altitude_ft, pilot_warned_flag,sky_conditions FROM df
+JOIN airports_df ON df.airport = airports_df.airportName AND df.origin = airports_df.state")
+#
+incidents_df <- sqldf("SELECT
+   rid,
+   flight_date AS date,
+   airline,
+   aircraft AS aircraft,
+   sky_conditions AS conditions,
+   origin,
+   flight_phase AS flightPhase,
+   altitude_ft AS altitude,
+   pilot_warned_flag AS warning
+   FROM df")
+
+incidents_df["date"] <- as.Date(incidents_df$date, "%m/%d/%y")
+
+incidents_df <- sqldf("SELECT rid,date,airline,aircraft,origin,flightPhase,altitude, warning,cid
+AS conditions FROM incidents_df
+JOIN conditions_df ON incidents_df.conditions = conditions_df.condition")
+
+incidents_df <- sqldf(c(
+  "UPDATE incidents_df SET airline = 'UNKNOWN' WHERE airline = ''",
+  "SELECT * FROM incidents_df"
+))
+
+incidents_df <- sqldf(c(
+  "UPDATE incidents_df SET aircraft = 'Unknown' WHERE aircraft = ''",
+  "SELECT * FROM incidents_df"
+))
+airports_df <- sqldf(c(
+  "UPDATE airports_df SET airportName = 'Unknown' WHERE airportName = ''",
+  "SELECT * FROM airports_df"
+))
+airports_df
+```
+
+```{r}
+incidents_df
+```
+
+# Part 3: Load data into tables and show that it loaded appropriately
+```{r}
+dbWriteTable(dbcon, "conditions", conditions_df, row.names = FALSE, append = TRUE)
+```
+
+```{sql connection=dbcon}
+# SHOW THAT CONDITIONS DATA INSERTED CORRECTLY
+SELECT * FROM conditions
+```
+
+```{r}
+dbWriteTable(dbcon, "airports", airports_df, row.names = FALSE, append = TRUE)
+```
+```{sql connection=dbcon}
+# SHOW THAT AIRPORTS DATA INSERTED CORRECTLY
+SELECT * FROM airports
+```
+
+```{r}
+dbWriteTable(dbcon, "incidents", incidents_df, row.names = FALSE, append = TRUE)
+```
+```{sql connection=dbcon}
+# SHOW THAT INCIDENTS DATA INSERTED CORRECTLY
+SELECT * FROM incidents
+```
+
+
+# Part 4: Find the top-10 airlines with the most number of incidents
+```{sql connection=dbcon}
+SELECT airline FROM incidents
+GROUP BY airline
+ORDER BY COUNT(*) DESC
+LIMIT 10
+```
+
+# Part 5: Find the flight phase(s) that had an above average number bird strike incidents
+Note that the average is calculated by taking a count of all incidents, then dividing by the number of unique flightPhases that exist.
+```{sql connection=dbcon}
+SELECT flightPhase, COUNT(*) AS numberOfIncidents FROM incidents
+GROUP BY flightPhase 
+HAVING numberOfIncidents > (SELECT COUNT(*)/COUNT(DISTINCT flightPhase) AS avgIncidents FROM incidents)
+```
+
+# Part 6: Find the month with the most number of bird strike incidents
+```{sql connection=dbcon}
+SELECT MONTHNAME(date) AS month, COUNT(*) AS numOfBirdStrikeIncidents FROM incidents
+GROUP BY MONTH(date)
+ORDER BY COUNT(*) DESC
+LIMIT 1
+```
+
+# Part 7: Create a stored procedure that adds a new incident to the database
+```{sql connection=dbcon}
+DROP PROCEDURE IF EXISTS AddIncident
+```
+
+We assume that anyone using this procedure is aware of the data constraints of the schema and will give inputs formatted as such.
+```{sql connection=dbcon}
+
+CREATE PROCEDURE AddIncident(
+  IN rid TEXT,
+  IN formattedDate TEXT,
+  IN aircraft TEXT,
+  IN airline TEXT,
+  IN warning TEXT,
+  IN flightPhase TEXT,
+  IN altitude INTEGER,
+  IN airport TEXT,
+  IN cond TEXT,
+  IN state TEXT)
+  
+BEGIN
+
+  DECLARE tempCond INTEGER;
+  DECLARE tempAirport INTEGER;
+  DECLARE tempCid INTEGER;
+  DECLARE tempAid INTEGER;
+  
+  SELECT COUNT(cid) INTO tempCond FROM conditions WHERE conditions.condition = cond;
+  IF tempCond = 0 THEN
+    INSERT INTO conditions (`condition`) VALUES (cond);
+  END IF;
+    
+  
+  SELECT COUNT(aid) INTO tempAirport FROM airports WHERE airports.airportName = airport;
+  IF tempAirport = 0 THEN
+    INSERT INTO airports (airportName, state) VALUES (airport, state);
+  END IF;
+    
+  
+  SELECT cid INTO tempCid FROM conditions WHERE conditions.condition = cond;
+
+  SELECT aid INTO tempAid FROM airports WHERE airports.airportName = airport AND airports.state = state;
+  
+  
+  
+  INSERT INTO incidents (rid, date, airline, aircraft, flightPhase, altitude, warning, origin, conditions)
+  VALUES (rid, formattedDate, airline, aircraft, flightPhase, altitude, warning, tempAid, tempCid);
+
+  
+END;
+```
+
+
+To check if the stored procedure works correctly, we give a list of correct input parameters for adding to the incidents table.
+```{sql connection=dbcon}
+CALL AddIncident(100, "2022-06-06", "Airplane", "American Airlines", "Y", "Landing", 200, "SFO International Airport", "Overcast", "California")
+```
+
+Showing that the new record was added to incidents table correctly. We can see that the new record for rid 100 is added, and also that a new aid for a new airport was added (1140 on origin column). The procedure also successfully looked up the cid for the given warning ("Overcast") and was shown accordingly in conditions column (3).
+```{sql connection=dbcon}
+SELECT * FROM incidents WHERE rid = 100;
+```
+
+We can also dynamically add a new condition. As shown below:
+```{sql connection=dbcon}
+CALL AddIncident(101, "2022-06-06", "Airplane", "American Airlines", "Y", "Landing", 200, "SFO International Airport", "New Condition Overcast", "California")
+```
+The following record with rid 101 has a condition code of 4, which did not previously exist. 
+```{sql connection=dbcon}
+SELECT * FROM incidents WHERE rid = 101;
+```
+
+Close connection to DB
+```{r}
+dbDisconnect(dbcon)
+```
+
+
+
+

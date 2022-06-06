@@ -1,0 +1,62 @@
+---
+title: "Tekwani.QueryDfInRwithSQL.CS5200"
+author: "Nickhil Tekwani"
+date: '2022-05-26'
+output: html_document
+---
+
+## R Markdown
+```{r}
+library("RSQLite")
+library("sqldf")
+
+dbfile = "MediaDB.db"
+dbcon <- dbConnect(RSQLite::SQLite(), paste0(dbfile))
+```
+```{sql connection=dbcon}
+PRAGMA foreign_keys = ON
+```
+
+```{}
+SQL has emerged as a generic query language on virtually any tabular data, including data frame in R, pandas in Python, and even Excel worksheets. This assignment provides you some exposure to querying databases from R and also using SQL to query non-database tabular objects using the sqldf package; it is quite simple and explained in First Steps in R. Another objective for this assignment is to require that you learn some R as we will need that for the first practicum that is coming up.
+```
+
+```{}
+Create an R Notebook and do the following tasks in separate code chunks:
+
+(30 pts) In the R Notebook, connect to the SQLite MediaDB.db  Download MediaDB.dbdatabase and then load, using SQL SELECT, the "invoice_items" table into a data frame called rs. Add a new column to rs for the extended price called ExtPrice that is Quantity times Price. Using R, what is the average extended price (rounded to 2 decimals)? Do not use {sql} chunks for this entire question. You must use all R code; to do the query use one of dbExecute(), dbGetQuery(), or dbSendQuery().
+
+(50 pts) Using sqldf, write a SQL query against the data frame rs from the question above that finds the total amount for each invoice (i.e., the sum of the extended prices for the invoice_items in each invoice) and the number of items in the invoice. So, the result set contains rows that each have the invoice ID, the total, and the number of items.
+
+(20 pts) Using R and the result from the prior question, create a scatter plot of the total number of items in an invoice (x axis) versus the total (y axis). Add proper axis labels.
+```
+
+```{r}
+# install.packages("sqldf")
+library(sqldf)
+library(RSQLite)
+
+dbfile = "MediaDB.db"
+dbcon <- dbConnect(RSQLite::SQLite(), paste0(dbfile))
+
+rs <- dbGetQuery(dbcon, "SELECT * FROM invoice_items")
+rs['ExtPrice'] <- rs['Quantity'] * rs['UnitPrice']
+rs
+```
+
+```{r}
+rs <- sqldf("SELECT InvoiceId, SUM(ExtPrice) as PriceSum, SUM(Quantity) as QuantitySum FROM rs GROUP BY InvoiceId")
+rs
+```
+```{r}
+x2 <- data.frame( rs['QuantitySum'], rs['PriceSum'] )
+plot(x2, xlab = "Total Number Of Items", ylab = "Total Price")
+```
+
+
+```{r}
+dbDisconnect(dbcon)
+```
+
+
+

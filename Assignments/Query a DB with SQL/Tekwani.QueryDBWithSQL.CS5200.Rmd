@@ -1,0 +1,71 @@
+---
+title: "Tekwani.QueryDBWithSQL.CS5200"
+author: "Nickhil Tekwani"
+date: '2022-05-26'
+output: html_document
+---
+
+
+## R Markdown
+```{r}
+library("RSQLite")
+
+dbfile = "MediaDB.db"
+dbcon <- dbConnect(RSQLite::SQLite(), paste0(dbfile))
+```
+```{sql connection=dbcon}
+PRAGMA foreign_keys = ON
+```
+
+```{sql connection=dbcon}
+/* Q1 */
+SELECT DISTINCT LastName, City, State FROM Customers INNER JOIN Invoices on Invoices.CustomerID = Customers.CustomerID;
+```
+
+```{sql connection=dbcon}
+/* Q2 */
+SELECT Title as AlbumTitle, Name as ArtistName FROM Albums INNER JOIN Artists on Artists.ArtistID = Albums.ArtistID;
+```
+
+```{sql connection=dbcon}
+/* Q3 */
+SELECT Country, COUNT(DISTINCT CustomerID) as NumOfUniqueCustomers FROM Customers GROUP BY Country ORDER BY Country;
+```
+
+```{sql connection=dbcon}
+/* Q4 */
+SELECT (COUNT(Customers.CustomerID) - COUNT(Invoices.CustomerID)) as CustomersWhoNeverMadePurchase FROM Customers INNER JOIN Invoices on Invoices.CustomerID = Customers.CustomerID;
+```
+
+```{sql connection=dbcon}
+/* Q5 */
+SELECT Title as NamesOfAlbumsContainingSymphony FROM Albums WHERE Title LIKE '%symphony%';
+```
+
+```{sql connection=dbcon}
+/* Q6 */
+SELECT SUM(UnitPrice) as TotalPriceOfAllTracks FROM Tracks;
+```
+```{sql connection=dbcon}
+/* Q7 */
+SELECT ar.name as ArtistName, COUNT(tr.name) as NumOfTracksPublished FROM Artists ar 
+INNER JOIN Albums al on ar.ArtistID = al.ArtistId
+INNER JOIN Tracks tr on tr.AlbumID = al.AlbumID
+GROUP BY ar.name
+ORDER BY NumOfTracksPublished DESC;
+```
+
+```{sql connection=dbcon}
+/* Q8 */
+SELECT ge.Name as GenreName, ROUND((SUM(tr.Milliseconds) / (1000.00*60.00*60.00)), 2) as TotalTimeInHours FROM Genres ge
+INNER JOIN Tracks tr on tr.GenreID = ge.GenreID
+GROUP BY ge.Name
+ORDER BY TotalTimeInHours DESC;
+```
+
+```{r}
+dbDisconnect(dbcon)
+```
+
+
+
