@@ -1,0 +1,114 @@
+---
+title: "cs5200.tekwani.xmldb"
+output: html_notebook
+author: "Nickhil Tekwani"
+---
+
+## Part 0: Required Libraries
+```{r}
+library(XML)
+library(RSQLite)
+library(DBI)
+library(knitr)
+library("methods")
+```
+
+## Part 1: Lucid Chart Schema
+```{r}
+knitr::include_graphics("https://media.cheggcdn.com/study/9a9/9a972884-f23e-404c-8672-88bfc67a8a95/image.png")
+```
+
+## Part 2: Create SQLite DB
+```{r}
+dbfile = "catalog.db"
+dbcon <- dbConnect(RSQLite::SQLite(), paste0(dbfile))
+```
+```{sql connection=dbcon}
+PRAGMA foreign_keys = ON
+```
+```{sql connection=dbcon}
+DROP TABLE IF EXISTS Catalog;
+```
+```{sql connection=dbcon}
+CREATE TABLE Catalog( 
+  id TEXT NOT NULL,
+  author TEXT NOT NULL,
+  title TEXT NOT NULL,
+  genre TEXT NOT NULL,
+  price NUMBER NOT NULL,
+  publish_date DATE NOT NULL,
+  description TEXT NOT NULL,
+  PRIMARY KEY (id)
+);
+```
+
+## Part 3: Load XML Data into R Dataframes
+```{r}
+
+result <- xmlParse(file = "Books-v3.xml")
+root <- xmlRoot(result)
+numOfBooks <- xmlSize(root)
+
+books.df <- data.frame (id = vector (mode = "character", 
+                                     length = numOfBooks),
+                     author = vector (mode = "character", 
+                                         length = numOfBooks),
+                     title = vector (mode = "character", 
+                                       length = numOfBooks),
+                     genre = vector (mode = "character", 
+                                        length = numOfBooks),
+                     price = vector (mode = "numeric", 
+                                        length = numOfBooks),
+                     publish_date = vector (mode = "character", 
+                                        length = numOfBooks),
+                     description = vector (mode = "character", 
+                                        length = numOfBooks),
+                     stringsAsFactors = F)
+
+
+# iterate through xml
+for (i in 1:numOfBooks)
+{
+  aBook <- root[[i]]
+  bookAttr <- xmlAttrs(aBook)
+  idAttr <- bookAttr[1]
+  
+  books.df$id[i] <- idAttr
+  books.df$author[i] <- xmlValue(aBook[[1]])
+  books.df$title[i] <- xmlValue(aBook[[2]])
+  books.df$genre[i] <- xmlValue(aBook[[3]])
+  books.df$price[i] <- as.numeric ( xmlValue(aBook[[4]]) )
+  books.df$publish_date[i] <- xmlValue(aBook[[5]])
+  books.df$description[i] <- xmlValue(aBook[[6]])
+  
+}
+
+books.df
+
+```
+
+## Part 4: Transform Data and Store Into DB
+```{r}
+dbWriteTable(dbcon, "Catalog", books.df, overwrite = T)
+```
+```{sql connection=dbcon}
+SELECT * From Catalog;
+```
+
+## Part 5: Queries
+### What is the number of genres have at least three books?
+```{sql connection=dbcon}
+SELECT COUNT(DISTINCT genre) as numOfGenres FROM Catalog WHERE genre IN (Select genre FROM Catalog GROUP BY genre HAVING COUNT(genre) > 3)
+```
+### What is the most recent year in which a publication was published?
+```{sql connection=dbcon}
+SELECT substr(publish_date, 1, 4) as YEAR FROM Catalog ORDER BY year DESC LIMIT 2
+```
+### Find the number of books and average price for each genre.
+```{sql connection=dbcon}
+SELECT genre, COUNT(DISTINCT id) AS numOfBooks, AVG(price) From Catalog GROUP BY genre
+```
+### List the title and author of all books that are less than 0.8*AVG or more than 1.2*AVG, where AVG is the average price of all books.
+```{sql connection=dbcon}
+SELECT title, author From Catalog GROUP BY id HAVING price < (.8 *  AVG(price)) OR price > (1.2 *  AVG(price))
+```

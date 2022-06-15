@@ -1,0 +1,44 @@
+---
+title: "Tekwani.QueryXML.CS5200"
+author: "Nickhil Tekwani"
+date: '2022-06-13'
+output: html_document
+---
+
+Set Up
+```{r}
+library("XML")
+library("methods")
+result <- xmlParse(file = "Books-v3.xml")
+result
+```
+Q1 - What are the titles of all books written by "Galos, Mike"? List the titles and the prices.
+```{r}
+xpath1 <- "//book[author='Galos, Mike']/title | //book[author='Galos, Mike']/price"
+mikeBooks <- xpathSApply(result, xpath1, xmlValue)
+print(mikeBooks)
+```
+Q2 - In what genre is the book with id "bk109"?
+```{r}
+xpath2 <- "//book[@id='bk109']/genre"
+genre109 <- xpathSApply(result, xpath2, xmlValue)
+print(genre109)
+```
+Q3 - What is the title(s) of the book(s) that sell for the lowest price? 
+```{r}
+xpath3 <- "//book[price = min(//book/price)]/title"
+lowestprice <- xpathSApply(result, xpath3, xmlValue)
+print(lowestprice)
+```
+Q4 - List the title and prices of all books in the "Computer" genre.
+```{r}
+xpath4 <- "//book[genre='Computer']/title | //book[genre='Computer']/price"
+computerBooks <- xpathSApply(result, xpath4, xmlValue)
+print(computerBooks)
+```
+Q5 -What is the number of all books that cost less than $10?
+```{r}
+xpath5 <- "count(//book[price < 10])"
+countLessThan10 <- xpathSApply(result, xpath5, xmlValue)
+print(countLessThan10)
+```
