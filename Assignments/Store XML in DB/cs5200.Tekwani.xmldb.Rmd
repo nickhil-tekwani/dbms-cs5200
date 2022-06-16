@@ -35,6 +35,7 @@ CREATE TABLE Catalog(
   author TEXT NOT NULL,
   title TEXT NOT NULL,
   genre TEXT NOT NULL,
+  edition TEXT NOT NULL,
   price NUMBER NOT NULL,
   publish_date DATE NOT NULL,
   description TEXT NOT NULL,
@@ -49,6 +50,15 @@ result <- xmlParse(file = "Books-v3.xml")
 root <- xmlRoot(result)
 numOfBooks <- xmlSize(root)
 
+authorList <- xpathSApply(root, "//author")
+titleList <- xpathSApply(root, "//title")
+genreList <- xpathSApply(root, "//genre")
+editionList <- xpathSApply(root, "//edition")
+priceList <- xpathSApply(root, "//price")
+dateList <- xpathSApply(root, "//publish_date")
+descriptionList <- xpathSApply(root, "//description")
+
+
 books.df <- data.frame (id = vector (mode = "character", 
                                      length = numOfBooks),
                      author = vector (mode = "character", 
@@ -56,6 +66,8 @@ books.df <- data.frame (id = vector (mode = "character",
                      title = vector (mode = "character", 
                                        length = numOfBooks),
                      genre = vector (mode = "character", 
+                                        length = numOfBooks),
+                     edition = vector (mode = "character", 
                                         length = numOfBooks),
                      price = vector (mode = "numeric", 
                                         length = numOfBooks),
@@ -74,16 +86,24 @@ for (i in 1:numOfBooks)
   idAttr <- bookAttr[1]
   
   books.df$id[i] <- idAttr
-  books.df$author[i] <- xmlValue(aBook[[1]])
-  books.df$title[i] <- xmlValue(aBook[[2]])
-  books.df$genre[i] <- xmlValue(aBook[[3]])
-  books.df$price[i] <- as.numeric ( xmlValue(aBook[[4]]) )
-  books.df$publish_date[i] <- xmlValue(aBook[[5]])
-  books.df$description[i] <- xmlValue(aBook[[6]])
+  books.df$author[i] <- xmlValue(authorList[[i]])
+  books.df$title[i] <- xmlValue(titleList[[i]])
+  books.df$genre[i] <- xmlValue(genreList[[i]])
+  
+  if (idAttr == "bk211") {
+    books.df$edition[i] <- xmlValue(editionList[[1]])
+  } else {
+    books.df$edition[i] <- ""
+  }
+  
+  books.df$price[i] <- as.numeric ( xmlValue(priceList[[i]]) )
+  books.df$publish_date[i] <- xmlValue(dateList[[i]])
+  books.df$description[i] <- xmlValue(descriptionList[[i]])
   
 }
 
-books.df
+
+print(books.df)
 
 ```
 
