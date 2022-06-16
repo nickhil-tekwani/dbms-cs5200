@@ -15,7 +15,7 @@ library("methods")
 
 ## Part 1: Lucid Chart Schema
 ```{r}
-knitr::include_graphics("https://media.cheggcdn.com/study/9a9/9a972884-f23e-404c-8672-88bfc67a8a95/image.png")
+knitr::include_graphics("https://i.imgur.com/KkxXhkZ.png")
 ```
 
 ## Part 2: Create SQLite DB
