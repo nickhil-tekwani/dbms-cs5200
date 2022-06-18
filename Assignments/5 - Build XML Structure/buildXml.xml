@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE log [
+<!ELEMENT log (visit, visitor, page)>
+
+<!ELEMENT visit (tid, vdate, vtime)>
+<!ATTLIST visit id ID #REQUIRED>
+<!ELEMENT tid (#PCDATA)>
+<!ELEMENT vdate (#PCDATA)>
+<!ELEMENT vtime (#PCDATA)>
+
+<!ELEMENT visitor (vid, ip)>
+<!ATTLIST visitor id IDREF #IMPLIED>
+<!ELEMENT vid (#PCDATA)>
+<!ELEMENT ip (#PCDATA)>
+
+<!ELEMENT page (pid, url)>
+<!ATTLIST page id IDREF #IMPLIED>
+<!ELEMENT pid (#PCDATA)>
+<!ELEMENT url (#PCDATA)>
+]>
+
+<log>
+    <visit id=1>
+        <tid>1</tid>
+        <vdate>2021-09-30</vdate>
+        <vtime>20:03:44</vtime>
+    </visit>
+    
+    <visitor id=1>
+        <vid>101</vid>
+        <ip>165.11.33.45</ip>
+    </visitor>
+    
+    <page id=1>
+        <pid>100</pid>
+        <url>http://artificium.us/lessons/l101.html</url>
+    </page>
+    
+    <visit id=2>
+        <tid>2</tid>
+        <vdate>2021-08-31</vdate>
+        <vtime>08:03:34</vtime>
+    </visit>
+    
+    <visitor id=2>
+        <vid>101</vid>
+        <ip>165.11.33.45</ip>
+    </visitor>
+    
+    <page id=2>
+        <pid>200</pid>
+        <url>http://articificum.us/courses/cs1100.html</url>
+    </page>
+</log>

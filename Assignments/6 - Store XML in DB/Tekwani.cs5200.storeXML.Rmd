@@ -14,8 +14,9 @@ library("methods")
 ```
 
 ## Part 1: Lucid Chart Schema
+This schema is BCNF normalized
 ```{r}
-knitr::include_graphics("https://i.imgur.com/KkxXhkZ.png")
+knitr::include_graphics("https://i.imgur.com/36A2guw.png")
 ```
 
 ## Part 2: Create SQLite DB
@@ -26,6 +27,7 @@ dbcon <- dbConnect(RSQLite::SQLite(), paste0(dbfile))
 ```{sql connection=dbcon}
 PRAGMA foreign_keys = ON
 ```
+
 ```{sql connection=dbcon}
 DROP TABLE IF EXISTS Catalog;
 ```
@@ -90,7 +92,8 @@ for (i in 1:numOfBooks)
   books.df$title[i] <- xmlValue(titleList[[i]])
   books.df$genre[i] <- xmlValue(genreList[[i]])
   
-  if (idAttr == "bk211") {
+  if (xmlSize(aBook) == 7) {
+    # this means that there is an edition element
     books.df$edition[i] <- xmlValue(editionList[[1]])
   } else {
     books.df$edition[i] <- ""
@@ -130,5 +133,5 @@ SELECT genre, COUNT(DISTINCT id) AS numOfBooks, AVG(price) From Catalog GROUP BY
 ```
 ### List the title and author of all books that are less than 0.8*AVG or more than 1.2*AVG, where AVG is the average price of all books.
 ```{sql connection=dbcon}
-SELECT title, author From Catalog GROUP BY id HAVING price < (.8 *  AVG(price)) OR price > (1.2 *  AVG(price))
+SELECT title, author From Catalog WHERE price < (.8 * (SELECT AVG(price) FROM Catalog)) OR price > (1.2 * (SELECT AVG(price) FROM Catalog))
 ```
