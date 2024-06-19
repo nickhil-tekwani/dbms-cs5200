@@ -1,2 +1,2 @@
 # CS 5200 - Database Management Systems 
-All assignemnts are exercises in SQL/XML
+All assignments/projects are exercises in SQL/XML
